@@ -54,6 +54,27 @@ void printText(struct TextBuffer* buffer){
     }
 }
 
+void freeBuffer(struct TextBuffer* buffer){
+    for (int i = 0; i < buffer->line_count; ++i){
+        free(buffer->lines[i]);
+    }
+    free (buffer->lines);
+    free(buffer);
+    printf("*Memory was freed\n*");
+}
+
+void insertNewLine(struct TextBuffer* buffer){
+    if (buffer->line_count >= buffer->capacity){
+        buffer->capacity *= 2;
+        buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
+    }
+    char* new_str = (char*)malloc(1*sizeof(char));
+    new_str[0] = '\0';
+    buffer->lines[buffer->line_count] = new_str;
+    buffer->line_count++;
+    printf("*New line is started*");
+}
+
 int main() {
     struct TextBuffer* textStorage = allocate();
     int command = 0;
@@ -98,5 +119,6 @@ int main() {
                 break;
         }
     }
+    freeBuffer(textStorage);
     return 0;
 }
