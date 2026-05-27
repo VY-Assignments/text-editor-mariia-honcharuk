@@ -133,6 +133,44 @@ void loadFromFile(struct TextBuffer* buffer){
     }
 }
 
+void insertText(struct TextBuffer* buffer){
+    int line_index;
+    int symbol_index;
+    printf("Choose line and index: ");
+    if (scanf("%d %d", &line_index, &symbol_index) != 2){
+        printf("*Error: Invalid input format.\n");
+        while(getchar() != '\n');
+        return;
+    }
+    while(getchar() != '\n');
+    if (line_index < 0 || line_index >= buffer->line_count){
+        printf("Error: No such index.\n");
+        return;
+    }
+    printf("Enter text to insert: ");
+    char temp_buffer[256];
+    if (fgets(temp_buffer, sizeof(temp_buffer), stdin) != NULL){
+        int length = strlen(temp_buffer);
+        if (length >0 && temp_buffer[length-1]=='\n'){
+            temp_buffer[length-1] = '\0';
+        }
+        int old_len = strlen(buffer->lines[line_index]);
+        if (symbol_index < 0 || symbol_index > old_len){
+            printf("*Error: No such index.\n");
+            return;
+        }
+        int new_len = strlen(temp_buffer);
+        char* new_line = (char*)malloc((old_len+new_len+1) * sizeof(char));
+        strncpy(new_line, buffer->lines[line_index], symbol_index);
+        new_line[symbol_index] = '\0';
+        strcat(new_line, temp_buffer);
+        strcat(new_line, buffer->lines[line_index]+symbol_index);
+        free(buffer->lines[line_index]);
+        buffer->lines[line_index] = new_line;
+        printf("*Text was inserted successfully*\n");
+    }
+}
+
 int main() {
     struct TextBuffer* textStorage = allocate();
     int command = 0;
@@ -142,6 +180,7 @@ int main() {
         printf(">Choose the command: ");
         if (scanf("%d", &command) != 1){
             printf("///Error, type a number.\n");
+            while (getchar() != '\n');
             continue;
         }
         while (getchar() != '\n');
@@ -163,7 +202,7 @@ int main() {
                 printText(textStorage);
                 break;
             case 6:
-                // і так далі
+                insertText(textStorage);
                 break;
             case 7:
                 // тут виклик функції
