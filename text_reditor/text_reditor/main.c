@@ -122,12 +122,15 @@ void loadFromFile(struct TextBuffer* buffer){
                 strcpy(new_str, temp_buffer);
                 buffer->lines[buffer->line_count]=new_str;
                 buffer->line_count++;
+                for (int i = 0; i<buffer->line_count; i++){
+                    printf(" %s\n", buffer->lines[i]);
+                }
             }
             fclose(file);
             printf("*Text has been loaded successfully*\n");
         }
         else{
-            printf("*Error: Couldn't load to the file.\n");
+            printf("*Error: Couldn't load from the file.\n");
             return;
         }
     }
@@ -136,7 +139,7 @@ void loadFromFile(struct TextBuffer* buffer){
 void insertText(struct TextBuffer* buffer){
     int line_index;
     int symbol_index;
-    printf("Choose line and index: ");
+    printf(">>Choose line and index: ");
     if (scanf("%d %d", &line_index, &symbol_index) != 2){
         printf("*Error: Invalid input format.\n");
         while(getchar() != '\n');
@@ -147,7 +150,7 @@ void insertText(struct TextBuffer* buffer){
         printf("Error: No such index.\n");
         return;
     }
-    printf("Enter text to insert: ");
+    printf(">>Enter text to insert: ");
     char temp_buffer[256];
     if (fgets(temp_buffer, sizeof(temp_buffer), stdin) != NULL){
         int length = strlen(temp_buffer);
@@ -173,14 +176,14 @@ void insertText(struct TextBuffer* buffer){
 
 void searchWord(struct TextBuffer* buffer){
     char search_term[256];
-    printf("> Enter text to search: ");
+    printf(">>Enter text to search: ");
     if (fgets(search_term, sizeof(search_term), stdin) != NULL){
         int length = strlen(search_term);
         if (length >0 && search_term[length-1]=='\n'){
             search_term[length-1] = '\0';
         }
         if (strlen(search_term) == 0) {
-            printf("> Error: Search term was empty.\n");
+            printf("*Error: Search term was empty.\n");
             return;
         }
         int found_count = 0;
@@ -188,7 +191,7 @@ void searchWord(struct TextBuffer* buffer){
             char* found_ptr = strstr(buffer->lines[i], search_term);
             if (found_ptr != NULL){
                 int symbol_index = found_ptr-buffer->lines[i];
-                printf("Text is present in this position: %d %d\n", i, symbol_index);
+                printf(">>Text is present in this position: %d %d\n", i, symbol_index);
                 found_count++;
             }
         }
@@ -199,10 +202,17 @@ void searchWord(struct TextBuffer* buffer){
     }
 }
 
+void clearConsole(){
+    system("clear");
+}
+
 int main() {
     struct TextBuffer* textStorage = allocate();
     int command = 0;
     int running = 1;
+    printf("--- Menu ---\n");
+    printf("1. Append text\n2. Start new line\n3. Save to file\n4. Load from file\n");
+    printf("5. Print current text\n6. Insert text by index\n7. Search by word\n8. Clear console\n9. Exit\n");
     
     while(running == 1){
         printf(">Choose the command: ");
@@ -236,11 +246,14 @@ int main() {
                 searchWord(textStorage);
                 break;
             case 8:
-                printf("You have finished the process");
+                clearConsole();
+                break;
+            case 9:
+                printf("You have finished the process\n");
                 running = 0;
                 break;
             default:
-                printf("Unknown command");
+                printf("Unknown command\n");
                 break;
         }
     }
