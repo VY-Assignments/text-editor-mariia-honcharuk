@@ -72,7 +72,65 @@ void insertNewLine(struct TextBuffer* buffer){
     new_str[0] = '\0';
     buffer->lines[buffer->line_count] = new_str;
     buffer->line_count++;
-    printf("*New line is started*");
+    printf("*New line is started\n*");
+}
+
+void saveToFile(struct TextBuffer* buffer){
+    char filename[256];
+    printf(">>Enter the file name for saving: ");
+    if (scanf("%s", filename) == 1){
+        while (getchar() != '\n');
+        FILE* file = fopen(filename, "w");
+        if (file != NULL){
+            for (int i = 0; i<buffer->line_count; i++){
+                fputs(buffer->lines[i], file);
+                fputs("\n", file);
+            }
+        }
+        else{
+            printf("*Error: Couldn't open file.\n");
+            return;
+        }
+        fclose(file);
+        printf("*Text has been saved successfully*\n");
+    }
+}
+
+void loadFromFile(struct TextBuffer* buffer){
+    char filename[256];
+    printf(">>Enter the file name for loading: ");
+    if (scanf("%s", filename) == 1){
+        while (getchar() != '\n');
+        FILE* file = fopen(filename, "r");
+        if (file != NULL){
+            for (int i = 0; i<buffer->line_count; i++){
+                free(buffer->lines[i]);
+            }
+            buffer->line_count = 0;
+            char temp_buffer[256];
+            while (fgets(temp_buffer, sizeof(temp_buffer), file) != NULL){
+                int length = strlen(temp_buffer);
+                if (length >0 && temp_buffer[length-1]=='\n'){
+                    temp_buffer[length-1] = '\0';
+                }
+                if (buffer->line_count >= buffer->capacity){
+                    buffer->capacity *= 2;
+                    buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
+                }
+                int clean_len = strlen(temp_buffer);
+                char* new_str = (char*)malloc((clean_len+1)* sizeof(char));
+                strcpy(new_str, temp_buffer);
+                buffer->lines[buffer->line_count]=new_str;
+                buffer->line_count++;
+            }
+            fclose(file);
+            printf("*Text has been loaded successfully*\n");
+        }
+        else{
+            printf("*Error: Couldn't load to the file.\n");
+            return;
+        }
+    }
 }
 
 int main() {
@@ -93,13 +151,13 @@ int main() {
                 appendText(textStorage);
                 break;
             case 2:
-                // і так далі
+                insertNewLine(textStorage);
                 break;
             case 3:
-                // тут виклик функції
+                saveToFile(textStorage);
                 break;
             case 4:
-                // і так далі
+                loadFromFile(textStorage);
                 break;
             case 5:
                 printText(textStorage);
