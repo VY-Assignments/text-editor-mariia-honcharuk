@@ -171,6 +171,34 @@ void insertText(struct TextBuffer* buffer){
     }
 }
 
+void searchWord(struct TextBuffer* buffer){
+    char search_term[256];
+    printf("> Enter text to search: ");
+    if (fgets(search_term, sizeof(search_term), stdin) != NULL){
+        int length = strlen(search_term);
+        if (length >0 && search_term[length-1]=='\n'){
+            search_term[length-1] = '\0';
+        }
+        if (strlen(search_term) == 0) {
+            printf("> Error: Search term was empty.\n");
+            return;
+        }
+        int found_count = 0;
+        for (int i = 0; i<buffer->line_count; i++){
+            char* found_ptr = strstr(buffer->lines[i], search_term);
+            if (found_ptr != NULL){
+                int symbol_index = found_ptr-buffer->lines[i];
+                printf("Text is present in this position: %d %d\n", i, symbol_index);
+                found_count++;
+            }
+        }
+        if (found_count == 0){
+            printf("*Search term was not found*\n");
+            return;
+        }
+    }
+}
+
 int main() {
     struct TextBuffer* textStorage = allocate();
     int command = 0;
@@ -205,7 +233,7 @@ int main() {
                 insertText(textStorage);
                 break;
             case 7:
-                // тут виклик функції
+                searchWord(textStorage);
                 break;
             case 8:
                 printf("You have finished the process");
