@@ -23,24 +23,62 @@ struct TextBuffer* allocate(){
     return buffer;
 }
 
+char* readDynamicLine(FILE* stream){
+    int capacity = 256;
+    int length = 0;
+    char* buffer = (char*)malloc(capacity * sizeof(char));
+    if (buffer == NULL) return NULL;
+    buffer[0] = '\0';
+    while(fgets(buffer + length, capacity - length, stream) != NULL){
+        length += strlen(buffer+length);
+        if (length > 0 && buffer[length-1] == '\n'){
+            buffer[length-1] = '\0';
+            break;
+        }
+        capacity *= 2;
+        char* new_buffer = (char*)realloc(buffer,capacity * sizeof(char));
+        if (new_buffer == NULL){
+            free(buffer);
+            return NULL;
+        }
+        buffer = new_buffer;
+    }
+    if (length == 0 && buffer[0] == '\0'){
+        free(buffer);
+        return NULL;
+    }
+    return buffer;
+}
+
 void appendText(struct TextBuffer* buffer){
     printf(">Enter text to append: ");
-    char temp_buffer[256];
-    if (fgets(temp_buffer, sizeof(temp_buffer), stdin) != NULL){
+    char* temp_buffer = readDynamicLine(stdin);
+    if (temp_buffer != NULL){
         int length = strlen(temp_buffer);
-        if (length >0 && temp_buffer[length-1]=='\n'){
-            temp_buffer[length-1] = '\0';
+        if (buffer->line_count == 0){
+            if (buffer->line_count >= buffer->capacity){
+                buffer->capacity *= 2;
+                buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
+            }
+            char* new_str = (char*)malloc((length + 1) * sizeof(char));
+            if (new_str != NULL) {
+                strcpy(new_str, temp_buffer);
+                buffer->lines[buffer->line_count] = new_str;
+                buffer->line_count++;
+                printf("*Your text was added*\n");
+            }
         }
-        if (buffer->line_count >= buffer->capacity){
-            buffer->capacity *= 2;
-            buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
+        else{
+            int last_idx = buffer->line_count - 1;
+            int old_len = strlen(buffer->lines[last_idx]);
+            char* resized_line = (char*)realloc(buffer->lines[last_idx], (old_len + length + 1) * sizeof(char));
+            if (resized_line != NULL) {
+                buffer->lines[last_idx] = resized_line;
+                strcat(buffer->lines[last_idx], temp_buffer);
+                printf("*Your text was added*\n");
+            }
         }
-        int clean_len = strlen(temp_buffer);
-        char* new_str = (char*)malloc((clean_len+1)* sizeof(char));
-        strcpy(new_str, temp_buffer);
-        buffer->lines[buffer->line_count]=new_str;
-        buffer->line_count++;
-        printf("*Your text was added*\n");
+        free(temp_buffer);
     }
 }
 
@@ -50,7 +88,7 @@ void printText(struct TextBuffer* buffer){
         return;
     }
     for (int i = 0; i<buffer->line_count; i++){
-        printf(" %s\n", buffer->lines[i]);
+        printf("%s\n", buffer->lines[i]);
     }
 }
 
@@ -72,7 +110,7 @@ void insertNewLine(struct TextBuffer* buffer){
     new_str[0] = '\0';
     buffer->lines[buffer->line_count] = new_str;
     buffer->line_count++;
-    printf("*New line is started\n*");
+    printf("*New line is started*\n");
 }
 
 void saveToFile(struct TextBuffer* buffer){
@@ -86,13 +124,14 @@ void saveToFile(struct TextBuffer* buffer){
                 fputs(buffer->lines[i], file);
                 fputs("\n", file);
             }
+            fclose(file);
+            printf("*Text has been saved successfully*\n");
         }
         else{
             printf("*Error: Couldn't open file.\n");
             return;
         }
-        fclose(file);
-        printf("*Text has been saved successfully*\n");
+        
     }
 }
 
@@ -107,31 +146,21 @@ void loadFromFile(struct TextBuffer* buffer){
                 free(buffer->lines[i]);
             }
             buffer->line_count = 0;
-            char temp_buffer[256];
-            while (fgets(temp_buffer, sizeof(temp_buffer), file) != NULL){
-                int length = strlen(temp_buffer);
-                if (length >0 && temp_buffer[length-1]=='\n'){
-                    temp_buffer[length-1] = '\0';
-                }
+            char* temp_buffer;
+            while ((temp_buffer = readDynamicLine(file)) != NULL){
                 if (buffer->line_count >= buffer->capacity){
                     buffer->capacity *= 2;
                     buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
                 }
-                int clean_len = strlen(temp_buffer);
-                char* new_str = (char*)malloc((clean_len+1)* sizeof(char));
-                strcpy(new_str, temp_buffer);
-                buffer->lines[buffer->line_count]=new_str;
+                temp_buffer = (char*)realloc(temp_buffer, (strlen(temp_buffer)+1) * sizeof(char));
+                buffer->lines[buffer->line_count]=temp_buffer;
                 buffer->line_count++;
-                for (int i = 0; i<buffer->line_count; i++){
-                    printf(" %s\n", buffer->lines[i]);
-                }
             }
             fclose(file);
             printf("*Text has been loaded successfully*\n");
         }
         else{
             printf("*Error: Couldn't load from the file.\n");
-            return;
         }
     }
 }
@@ -164,24 +193,23 @@ void insertText(struct TextBuffer* buffer){
         }
         int new_len = strlen(temp_buffer);
         char* new_line = (char*)malloc((old_len+new_len+1) * sizeof(char));
-        strncpy(new_line, buffer->lines[line_index], symbol_index);
-        new_line[symbol_index] = '\0';
-        strcat(new_line, temp_buffer);
-        strcat(new_line, buffer->lines[line_index]+symbol_index);
-        free(buffer->lines[line_index]);
-        buffer->lines[line_index] = new_line;
-        printf("*Text was inserted successfully*\n");
+        if (new_line != NULL){
+            strncpy(new_line, buffer->lines[line_index], symbol_index);
+            new_line[symbol_index] = '\0';
+            strcat(new_line, temp_buffer);
+            strcat(new_line, buffer->lines[line_index]+symbol_index);
+            free(buffer->lines[line_index]);
+            buffer->lines[line_index] = new_line;
+            printf("*Text was inserted successfully*\n");
+        }
+        free(temp_buffer);
     }
 }
 
 void searchWord(struct TextBuffer* buffer){
-    char search_term[256];
+    char* search_term = readDynamicLine(stdin);
     printf(">>Enter text to search: ");
-    if (fgets(search_term, sizeof(search_term), stdin) != NULL){
-        int length = strlen(search_term);
-        if (length >0 && search_term[length-1]=='\n'){
-            search_term[length-1] = '\0';
-        }
+    if (search_term != NULL){
         if (strlen(search_term) == 0) {
             printf("*Error: Search term was empty.\n");
             return;
@@ -199,6 +227,7 @@ void searchWord(struct TextBuffer* buffer){
             printf("*Search term was not found*\n");
             return;
         }
+        free(search_term);
     }
 }
 
