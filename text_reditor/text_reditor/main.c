@@ -15,6 +15,7 @@ struct TextBuffer{
     int capacity;
     int cursor_line;
     int cursor_symbol;
+    char* clipboard;
 };
 
 struct TextBuffer* allocate(){
@@ -24,6 +25,7 @@ struct TextBuffer* allocate(){
     buffer->lines = (char**)malloc(buffer->capacity*sizeof(char*));
     buffer->cursor_line = 0;
     buffer->cursor_symbol = 0;
+    buffer->clipboard = NULL;
     return buffer;
 }
 
@@ -129,6 +131,9 @@ void printText(struct TextBuffer* buffer){
 void freeBuffer(struct TextBuffer* buffer){
     for (int i = 0; i < buffer->line_count; ++i){
         free(buffer->lines[i]);
+    }
+    if (buffer->clipboard != NULL){
+        free(buffer->clipboard);
     }
     free (buffer->lines);
     free(buffer);
@@ -240,14 +245,7 @@ void insertText(struct TextBuffer* buffer){
     }
 }
 
-void delete(struct TextBuffer* buffer){
-    int number_of_symbols;
-    printf(">>Choose number of symbols to delete: ");
-    if (scanf("%d", &number_of_symbols) != 1){
-        printf("*Error: Invalid input format*\n");
-        while(getchar() != '\n');
-        return;
-    }
+void deleteLogic(struct TextBuffer* buffer, int number_of_symbols){
     int line_index = buffer->cursor_line;
     int symbol_index = buffer->cursor_symbol;
     if (line_index >= buffer->line_count){
@@ -276,11 +274,94 @@ void delete(struct TextBuffer* buffer){
     }
     else{
         char* safe_buffer = (char*)realloc(buffer->lines[line_index], (new_len + 1) * sizeof(char));
-            if (safe_buffer != NULL) {
-                buffer->lines[line_index] = safe_buffer;
-            }
-            printf("*Text was deleted successfully*\n");
+        if (safe_buffer != NULL) {
+            buffer->lines[line_index] = safe_buffer;
+        }
     }
+}
+    
+void delete(struct TextBuffer* buffer){
+    if (buffer->line_count == 0) return;
+    int number_of_symbols;
+    printf(">>Choose number of symbols to delete: ");
+    if (scanf("%d", &number_of_symbols) != 1){
+        printf("*Error: Invalid input format*\n");
+        while(getchar() != '\n');
+        return;
+    }
+    deleteLogic(buffer, number_of_symbols);
+    printf("*Text was deleted successfully*\n");
+}
+
+void copyLogic(struct TextBuffer* buffer, int num){
+    int line_index = buffer->cursor_line;
+        int symbol_index = buffer->cursor_symbol;
+        int old_len = strlen(buffer->lines[line_index]);
+        if (symbol_index+num > old_len){
+            num = old_len - symbol_index;
+        }
+        if (buffer->clipboard != NULL){
+            free(buffer->clipboard);
+        }
+        buffer->clipboard = (char*)malloc((num + 1)* sizeof(char));
+        strncpy(buffer->clipboard, buffer->lines[line_index]+symbol_index, num);
+        buffer->clipboard[num] = '\0';
+}
+
+void copy(struct TextBuffer* buffer){
+    if (buffer->line_count == 0) return;
+    int num;
+    printf(">>Choose number of symbols to copy: ");
+    if (scanf("%d", &num) != 1){
+        while(getchar() != '\n');
+        return;
+    }
+    while(getchar() != '\n');
+    copyLogic(buffer, num);
+    printf("*Text was copied*\n");
+}
+
+void cut(struct TextBuffer* buffer){
+    if (buffer->line_count == 0) return;
+    int num;
+    printf(">>Chose number of symbols to cut: ");
+    if (scanf("%d", &num) != 1){
+        while(getchar() != '\n');
+        return;
+    }
+    while(getchar() != '\n');
+    copyLogic(buffer, num);
+    deleteLogic(buffer, num);
+    printf("*Text was cutted*\n");
+}
+
+void paste(struct TextBuffer* buffer){
+    if (buffer->clipboard == NULL) {
+        printf("*Error: Clipboard is empty*\n");
+        return;
+    }
+    int line_index = buffer->cursor_line;
+    int symbol_index = buffer->cursor_symbol;
+    if (line_index >= buffer->line_count) {
+        printf("*Error: Cursor is out of bounds*\n");
+        return;
+    }
+    int old_len = strlen(buffer->lines[line_index]);
+    int paste_len = strlen(buffer->clipboard);
+    if (symbol_index > old_len) {
+        symbol_index = old_len;
+    }
+    char* safe_buffer = (char*)realloc(buffer->lines[line_index], (old_len+paste_len+1)*sizeof(char));
+    if (safe_buffer == NULL){
+        printf("*Error: memory reallocation faild*\n");
+    }
+    buffer->lines[line_index] = safe_buffer;
+    char* insert_p = buffer->lines[line_index] + symbol_index;
+    int bytes_to_move = old_len - symbol_index + 1;
+    memmove(insert_p+paste_len, insert_p, bytes_to_move);
+    memcpy(insert_p, buffer->clipboard, paste_len);
+    buffer->cursor_symbol += paste_len;
+    printf("*Text was pasted*\n");
 }
 
 void searchWord(struct TextBuffer* buffer){
