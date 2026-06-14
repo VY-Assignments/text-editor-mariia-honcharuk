@@ -206,6 +206,45 @@ void insertText(struct TextBuffer* buffer){
     }
 }
 
+void delete(struct TextBuffer* buffer){
+    int line_index;
+    int symbol_index;
+    int number_of_symbols;
+    printf(">>Choose line and index: ");
+    if (scanf("%d %d %d", &line_index, &symbol_index, &number_of_symbols) != 3){
+        printf("*Error: Invalid input format.\n");
+        while(getchar() != '\n');
+        return;
+    }
+    while(getchar() != '\n');
+    if (line_index < 0 || line_index >= buffer->line_count){
+        printf("Error: No such index.\n");
+        return;
+    }
+    int old_len = strlen(buffer->lines[line_index]);
+    if (symbol_index < 0 || symbol_index > old_len){
+        printf("*Error: No such index.\n");
+        return;
+    }
+    if ((symbol_index+number_of_symbols) >= old_len){
+        printf("Error: Can't delete unexisted symbols.\n");
+        return;
+    }
+    char* dest = buffer->lines[line_index] + symbol_index;
+    char* src = dest + number_of_symbols;
+    int bytes_to_move = old_len - (symbol_index + number_of_symbols) + 1;
+    memmove(dest, src, bytes_to_move);
+    int new_len = old_len - number_of_symbols;
+    char* safe_buffer = (char*)realloc(buffer->lines[line_index], (new_len +1) * sizeof(char));
+    if (safe_buffer != NULL){
+        buffer->lines[line_index] = safe_buffer;
+    }
+    else {
+        printf("Error: memory reallocation failed");
+    }
+    printf("*Text wsa deleted*\n");
+}
+
 void searchWord(struct TextBuffer* buffer){
     char* search_term = readDynamicLine(stdin);
     printf(">>Enter text to search: ");
