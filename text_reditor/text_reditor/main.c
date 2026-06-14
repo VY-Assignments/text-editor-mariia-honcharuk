@@ -13,6 +13,8 @@ struct TextBuffer{
     char** lines;
     int line_count;
     int capacity;
+    int cursor_line;
+    int cursor_symbol;
 };
 
 struct TextBuffer* allocate(){
@@ -20,8 +22,40 @@ struct TextBuffer* allocate(){
     buffer->capacity = 10;
     buffer->line_count = 0;
     buffer->lines = (char**)malloc(buffer->capacity*sizeof(char*));
+    buffer->cursor_line = 0;
+    buffer->cursor_symbol = 0;
     return buffer;
 }
+
+void setCursor(struct TextBuffer* buffer){
+    if (buffer->line_count == 0){
+        printf("Error: Text is empty, cannot set cursos.\n");
+        return;
+    }
+    int line;
+    int symbol;
+    printf(">>Enter line and symbol index to place cursor: ");
+    if (scanf("%d %d", &line, &symbol) != 2){
+        printf("*Error: Invalid input format.*\n");
+        while(getchar() != '\n');
+        return;
+    }
+    while(getchar() != '\n');
+    if (line < 0 || line >= buffer->line_count) {
+        printf("*Error: No such line index.*\n");
+        return;
+    }
+
+    int current_len = strlen(buffer->lines[line]);
+    if (symbol < 0 || symbol > current_len) {
+        printf("*Error: No such symbol index.*\n");
+        return;
+    }
+    buffer->cursor_line = line;
+    buffer->cursor_symbol = symbol;
+    printf("*Cursor was set at [%d: %d]*\n", line, symbol);
+}
+
 
 char* readDynamicLine(FILE* stream){
     int capacity = 256;
@@ -207,27 +241,22 @@ void insertText(struct TextBuffer* buffer){
 }
 
 void delete(struct TextBuffer* buffer){
-    int line_index;
-    int symbol_index;
     int number_of_symbols;
-    printf(">>Choose line and index: ");
-    if (scanf("%d %d %d", &line_index, &symbol_index, &number_of_symbols) != 3){
-        printf("*Error: Invalid input format.\n");
+    printf(">>Choose number of symbols to delete: ");
+    if (scanf("%d", &number_of_symbols) != 1){
+        printf("*Error: Invalid input format*\n");
         while(getchar() != '\n');
         return;
     }
-    while(getchar() != '\n');
-    if (line_index < 0 || line_index >= buffer->line_count){
-        printf("Error: No such index.\n");
+    int line_index = buffer->cursor_line;
+    int symbol_index = buffer->cursor_symbol;
+    if (line_index >= buffer->line_count){
+        printf("*Error: Cursor is out of bounds*\n");
         return;
     }
     int old_len = strlen(buffer->lines[line_index]);
-    if (symbol_index < 0 || symbol_index > old_len){
-        printf("*Error: No such index.\n");
-        return;
-    }
-    if ((symbol_index+number_of_symbols) >= old_len){
-        printf("Error: Can't delete unexisted symbols.\n");
+    if ((symbol_index + number_of_symbols) > old_len){
+        printf("*Error: Cant delete unexising symbols*\n");
         return;
     }
     char* dest = buffer->lines[line_index] + symbol_index;
@@ -235,14 +264,23 @@ void delete(struct TextBuffer* buffer){
     int bytes_to_move = old_len - (symbol_index + number_of_symbols) + 1;
     memmove(dest, src, bytes_to_move);
     int new_len = old_len - number_of_symbols;
-    char* safe_buffer = (char*)realloc(buffer->lines[line_index], (new_len +1) * sizeof(char));
-    if (safe_buffer != NULL){
-        buffer->lines[line_index] = safe_buffer;
+    if (new_len == 0) {
+        free(buffer->lines[line_index]);
+        for (int i = line_index; i < buffer->line_count - 1; i++) {
+            buffer->lines[i] = buffer->lines[i + 1];
+        }
+        buffer->line_count--;
+        buffer->cursor_line = 0;
+        buffer->cursor_symbol = 0;
+        printf("*Text was deleted successfully*\n");
     }
-    else {
-        printf("Error: memory reallocation failed");
+    else{
+        char* safe_buffer = (char*)realloc(buffer->lines[line_index], (new_len + 1) * sizeof(char));
+            if (safe_buffer != NULL) {
+                buffer->lines[line_index] = safe_buffer;
+            }
+            printf("*Text was deleted successfully*\n");
     }
-    printf("*Text wsa deleted*\n");
 }
 
 void searchWord(struct TextBuffer* buffer){
