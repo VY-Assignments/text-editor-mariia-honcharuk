@@ -16,6 +16,16 @@ struct TextBuffer{
     int cursor_line;
     int cursor_symbol;
     char* clipboard;
+    char** history_lines[3];
+    int history_line_counts[3];
+    int history_cursor_lines[3];
+    int history_cursor_symbols[3];
+    int history_count;
+    char** redo_lines[3];
+    int redo_line_counts[3];
+    int redo_cursor_lines[3];
+    int redo_cursor_symbols[3];
+    int redo_count;
 };
 
 struct TextBuffer* allocate(){
@@ -26,7 +36,87 @@ struct TextBuffer* allocate(){
     buffer->cursor_line = 0;
     buffer->cursor_symbol = 0;
     buffer->clipboard = NULL;
+    buffer->history_count = 0;
+    for (int i = 0; i < 3; i++){
+        buffer->history_lines[i] = NULL;
+        buffer->history_line_counts[i] = 0;
+        buffer->history_cursor_symbols[i] = 0;
+        buffer->history_cursor_lines[i] = 0;
+    }
+    buffer->redo_count = 0;
+    for (int i = 0; i < 3; i++){
+        buffer->redo_lines[i] = NULL;
+        buffer->redo_line_counts[i] = 0;
+        buffer->redo_cursor_symbols[i] = 0;
+        buffer->redo_cursor_lines[i] = 0;
+    }
     return buffer;
+}
+
+void saveSnapshot(struct TextBuffer* buffer){
+    if (buffer->history_count == 3){
+        for (int i = 0; i < (buffer->history_line_counts[2]); i++){
+            free(buffer->history_lines[2][i]);
+        }
+        free(buffer->history_lines[2]);
+    }
+    if (buffer->history_count >= 2){
+        buffer->history_lines[2] = buffer->history_lines[1];
+        buffer->history_line_counts[2] = buffer->history_line_counts[1];
+        buffer->history_cursor_lines[2] = buffer->history_cursor_lines[1];
+        buffer->history_cursor_symbols[2] = buffer->history_cursor_symbols[1];
+    }
+    if (buffer->history_count >= 1){
+        buffer->history_lines[1] = buffer->history_lines[0];
+        buffer->history_line_counts[1] = buffer->history_line_counts[0];
+        buffer->history_cursor_lines[1] = buffer->history_cursor_lines[0];
+        buffer->history_cursor_symbols[1] = buffer->history_cursor_symbols[0];
+    }
+    if (buffer->history_count < 3){
+        buffer->history_count = buffer->history_count + 1;
+    }
+    buffer->history_line_counts[0] = buffer->line_count;
+    buffer->history_cursor_lines[0] = buffer->cursor_line;
+    buffer->history_cursor_symbols[0] = buffer->cursor_symbol;
+    buffer->history_lines[0] = (char**)malloc(buffer->line_count * sizeof(char*));
+    for (int i = 0; i < buffer->line_count; i++){
+        int len = strlen(buffer->lines[i]);
+        buffer->history_lines[0][i] = (char*)malloc((len + 1) * sizeof(char));
+        strcpy(buffer->history_lines[0][i], buffer->lines[i]);
+    }
+}
+
+void saveRedoSnapshots(struct TextBuffer* buffer){
+    if (buffer->redo_count == 3){
+        for (int i = 0; i < (buffer->redo_line_counts[2]); i++){
+            free(buffer->redo_lines[2][i]);
+        }
+        free(buffer->redo_lines[2]);
+    }
+    if (buffer->redo_count >= 2){
+        buffer->redo_lines[2] = buffer->redo_lines[1];
+        buffer->redo_line_counts[2] = buffer->redo_line_counts[1];
+        buffer->redo_cursor_lines[2] = buffer->redo_cursor_lines[1];
+        buffer->redo_cursor_symbols[2] = buffer->redo_cursor_symbols[1];
+    }
+    if (buffer->redo_count >= 1){
+        buffer->redo_lines[1] = buffer->redo_lines[0];
+        buffer->redo_line_counts[1] = buffer->redo_line_counts[0];
+        buffer->redo_cursor_lines[1] = buffer->redo_cursor_lines[0];
+        buffer->redo_cursor_symbols[1] = buffer->redo_cursor_symbols[0];
+    }
+    if (buffer->redo_count < 3){
+        buffer->redo_count = buffer->redo_count + 1;
+    }
+    buffer->redo_line_counts[0] = buffer->line_count;
+    buffer->redo_cursor_lines[0] = buffer->cursor_line;
+    buffer->redo_cursor_symbols[0] = buffer->cursor_symbol;
+    buffer->redo_lines[0] = (char**)malloc(buffer->line_count * sizeof(char*));
+    for (int i = 0; i < buffer->line_count; i++){
+        int len = strlen(buffer->lines[i]);
+        buffer->redo_lines[0][i] = (char*)malloc((len + 1) * sizeof(char));
+        strcpy(buffer->redo_lines[0][i], buffer->lines[i]);
+    }
 }
 
 void setCursor(struct TextBuffer* buffer){
@@ -354,6 +444,7 @@ void paste(struct TextBuffer* buffer){
     char* safe_buffer = (char*)realloc(buffer->lines[line_index], (old_len+paste_len+1)*sizeof(char));
     if (safe_buffer == NULL){
         printf("*Error: memory reallocation faild*\n");
+        return;
     }
     buffer->lines[line_index] = safe_buffer;
     char* insert_p = buffer->lines[line_index] + symbol_index;
@@ -389,6 +480,59 @@ void searchWord(struct TextBuffer* buffer){
     }
 }
 
+void undo(struct TextBuffer* buffer){
+    if (buffer->history_count > 0){
+        saveRedoSnapshots(buffer);
+        for (int i = 0; i < buffer->line_count; i++){
+            free(buffer->lines[i]);
+        }
+        free(buffer->lines);
+        buffer->line_count = buffer->history_line_counts[0];
+        buffer->cursor_line = buffer->history_cursor_lines[0];
+        buffer->cursor_symbol = buffer->history_cursor_symbols[0];
+        buffer->lines = buffer->history_lines[0];
+        for (int i = 0; i < buffer->history_count - 1; i++){
+            buffer->history_lines[i] = buffer->history_lines[i + 1];
+            buffer->history_line_counts[i] = buffer->history_line_counts[i + 1];
+            buffer->history_cursor_lines[i] = buffer->history_cursor_lines[i + 1];
+            buffer->history_cursor_symbols[i] = buffer->history_cursor_symbols[i + 1];
+        }
+        buffer->history_count--;
+    }
+}
+
+void redo(struct TextBuffer* buffer){
+    if (buffer->redo_count > 0){
+        saveSnapshot(buffer);
+        for (int i = 0; i < buffer->line_count; i++){
+            free(buffer->lines[i]);
+        }
+        free(buffer->lines);
+        buffer->line_count = buffer->redo_line_counts[0];
+        buffer->cursor_line = buffer->redo_cursor_lines[0];
+        buffer->cursor_symbol = buffer->redo_cursor_symbols[0];
+        buffer->lines = buffer->redo_lines[0];
+        for (int i = 0; i < buffer->redo_count - 1; i++){
+            buffer->redo_lines[i] = buffer->redo_lines[i + 1];
+            buffer->redo_line_counts[i] = buffer->redo_line_counts[i + 1];
+            buffer->redo_cursor_lines[i] = buffer->redo_cursor_lines[i + 1];
+            buffer->redo_cursor_symbols[i] = buffer->redo_cursor_symbols[i + 1];
+        }
+        buffer->redo_count--;
+    }
+}
+
+void clearRedo(struct TextBuffer* buffer){
+    for(int i = 0; i < buffer->redo_count; i++){
+        for(int j = 0; j < buffer->redo_line_counts[i]; j++){
+            free(buffer->redo_lines[i][j]);
+        }
+        free(buffer->redo_lines[i]);
+        buffer->redo_lines[i] = NULL;
+    }
+    buffer->redo_count = 0;
+}
+
 void clearConsole(){
     system("clear");
 }
@@ -399,7 +543,8 @@ int main() {
     int running = 1;
     printf("--- Menu ---\n");
     printf("1. Append text\n2. Start new line\n3. Save to file\n4. Load from file\n");
-    printf("5. Print current text\n6. Insert text by index\n7. Search by word\n8. Clear console\n9. Exit\n");
+    printf("5. Print current text\n6. Insert text by index\n7. Search by word\n8. Delete\n9. Undo\n");
+    printf("10. Redo\n11. Cut\n12. Paste\n13. Copy\n14. Replace\n15. Exit\n");
     
     while(running == 1){
         printf(">Choose the command: ");
@@ -433,9 +578,27 @@ int main() {
                 searchWord(textStorage);
                 break;
             case 8:
-                clearConsole();
+                delete(textStorage);
                 break;
             case 9:
+                undo(textStorage);
+                break;
+            case 10:
+                redo(textStorage);
+                break;
+            case 11:
+                cut(textStorage);
+                break;
+            case 12:
+                paste(textStorage);
+                break;
+            case 13:
+                copy(textStorage);
+                break;
+            case 14:
+                // replace(textStorage);
+                break;
+            case 15:
                 printf("You have finished the process\n");
                 running = 0;
                 break;
