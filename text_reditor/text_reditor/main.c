@@ -179,6 +179,10 @@ void undo(struct TextBuffer* buffer){
         }
         buffer->history_count--;
     }
+    else{
+        printf("*Error: nothing to undo*\n");
+    }
+    
 }
 
 void redo(struct TextBuffer* buffer){
@@ -200,6 +204,9 @@ void redo(struct TextBuffer* buffer){
             buffer->redo_cursor_symbols[i] = buffer->redo_cursor_symbols[i + 1];
         }
         buffer->redo_count--;
+    }
+    else{
+        printf("*Error: nothing to redo*\n");
     }
 }
 
@@ -420,7 +427,10 @@ void deleteLogic(struct TextBuffer* buffer, int number_of_symbols){
 }
     
 void delete(struct TextBuffer* buffer){
-    if (buffer->line_count == 0) return;
+    if (buffer->line_count == 0) {
+        printf("*Error: Text is empty*\n");
+        return;
+    }
     int number_of_symbols;
     printf(">>Choose number of symbols to delete: ");
     if (scanf("%d", &number_of_symbols) != 1){
@@ -431,7 +441,7 @@ void delete(struct TextBuffer* buffer){
     clearRedo(buffer);
     saveSnapshot(buffer);
     deleteLogic(buffer, number_of_symbols);
-    printf("*Text was deleted successfully*\n");
+    //printf("*Text was deleted successfully*\n");
 }
 
 void copyLogic(struct TextBuffer* buffer, int num){
@@ -450,7 +460,10 @@ void copyLogic(struct TextBuffer* buffer, int num){
 }
 
 void copy(struct TextBuffer* buffer){
-    if (buffer->line_count == 0) return;
+    if (buffer->line_count == 0) {
+        printf("*Error: Text is empty*\n");
+        return;
+    }
     int num;
     printf(">>Choose number of symbols to copy: ");
     if (scanf("%d", &num) != 1){
@@ -463,7 +476,10 @@ void copy(struct TextBuffer* buffer){
 }
 
 void cut(struct TextBuffer* buffer){
-    if (buffer->line_count == 0) return;
+    if (buffer->line_count == 0) {
+        printf("*Error: Text is empty*\n");
+        return;
+    }
     int num;
     printf(">>Chose number of symbols to cut: ");
     if (scanf("%d", &num) != 1){
@@ -491,22 +507,7 @@ void paste(struct TextBuffer* buffer){
     }
     clearRedo(buffer);
     saveSnapshot(buffer);
-    int old_len = strlen(buffer->lines[line_index]);
-    int paste_len = strlen(buffer->clipboard);
-    if (symbol_index > old_len) {
-        symbol_index = old_len;
-    }
-    char* safe_buffer = (char*)realloc(buffer->lines[line_index], (old_len+paste_len+1)*sizeof(char));
-    if (safe_buffer == NULL){
-        printf("*Error: memory reallocation faild*\n");
-        return;
-    }
-    buffer->lines[line_index] = safe_buffer;
-    char* insert_p = buffer->lines[line_index] + symbol_index;
-    int bytes_to_move = old_len - symbol_index + 1;
-    memmove(insert_p+paste_len, insert_p, bytes_to_move);
-    memcpy(insert_p, buffer->clipboard, paste_len);
-    buffer->cursor_symbol += paste_len;
+    insertLogic(buffer, buffer->clipboard);
     printf("*Text was pasted*\n");
 }
 
