@@ -53,6 +53,46 @@ struct TextBuffer* allocate(){
     return buffer;
 }
 
+char* readDynamicLine(FILE* stream){
+    int capacity = 256;
+    int length = 0;
+    char* buffer = (char*)malloc(capacity * sizeof(char));
+    if (buffer == NULL) return NULL;
+    buffer[0] = '\0';
+    while(fgets(buffer + length, capacity - length, stream) != NULL){
+        length += strlen(buffer+length);
+        if (length > 0 && buffer[length-1] == '\n'){
+            buffer[length-1] = '\0';
+            break;
+        }
+        capacity *= 2;
+        char* new_buffer = (char*)realloc(buffer,capacity * sizeof(char));
+        if (new_buffer == NULL){
+            free(buffer);
+            return NULL;
+        }
+        buffer = new_buffer;
+    }
+    if (length == 0 && buffer[0] == '\0'){
+        free(buffer);
+        return NULL;
+    }
+    return buffer;
+}
+
+void clearRedo(struct TextBuffer* buffer){
+    for(int i = 0; i < buffer->redo_count; i++){
+        for(int j = 0; j < buffer->redo_line_counts[i]; j++){
+            free(buffer->redo_lines[i][j]);
+        }
+        free(buffer->redo_lines[i]);
+        buffer->redo_lines[i] = NULL;
+    }
+    buffer->redo_count = 0;
+}
+
+
+
 void saveSnapshot(struct TextBuffer* buffer){
     if (buffer->history_count == 3){
         for (int i = 0; i < (buffer->history_line_counts[2]); i++){
@@ -119,6 +159,50 @@ void saveRedoSnapshots(struct TextBuffer* buffer){
     }
 }
 
+void undo(struct TextBuffer* buffer){
+    if (buffer->history_count > 0){
+        saveRedoSnapshots(buffer);
+        for (int i = 0; i < buffer->line_count; i++){
+            free(buffer->lines[i]);
+        }
+        free(buffer->lines);
+        buffer->line_count = buffer->history_line_counts[0];
+        buffer->capacity = buffer->history_line_counts[0];
+        buffer->cursor_line = buffer->history_cursor_lines[0];
+        buffer->cursor_symbol = buffer->history_cursor_symbols[0];
+        buffer->lines = buffer->history_lines[0];
+        for (int i = 0; i < buffer->history_count - 1; i++){
+            buffer->history_lines[i] = buffer->history_lines[i + 1];
+            buffer->history_line_counts[i] = buffer->history_line_counts[i + 1];
+            buffer->history_cursor_lines[i] = buffer->history_cursor_lines[i + 1];
+            buffer->history_cursor_symbols[i] = buffer->history_cursor_symbols[i + 1];
+        }
+        buffer->history_count--;
+    }
+}
+
+void redo(struct TextBuffer* buffer){
+    if (buffer->redo_count > 0){
+        saveSnapshot(buffer);
+        for (int i = 0; i < buffer->line_count; i++){
+            free(buffer->lines[i]);
+        }
+        free(buffer->lines);
+        buffer->line_count = buffer->redo_line_counts[0];
+        buffer->capacity = buffer->redo_line_counts[0];
+        buffer->cursor_line = buffer->redo_cursor_lines[0];
+        buffer->cursor_symbol = buffer->redo_cursor_symbols[0];
+        buffer->lines = buffer->redo_lines[0];
+        for (int i = 0; i < buffer->redo_count - 1; i++){
+            buffer->redo_lines[i] = buffer->redo_lines[i + 1];
+            buffer->redo_line_counts[i] = buffer->redo_line_counts[i + 1];
+            buffer->redo_cursor_lines[i] = buffer->redo_cursor_lines[i + 1];
+            buffer->redo_cursor_symbols[i] = buffer->redo_cursor_symbols[i + 1];
+        }
+        buffer->redo_count--;
+    }
+}
+
 void setCursor(struct TextBuffer* buffer){
     if (buffer->line_count == 0){
         printf("Error: Text is empty, cannot set cursos.\n");
@@ -149,38 +233,13 @@ void setCursor(struct TextBuffer* buffer){
 }
 
 
-char* readDynamicLine(FILE* stream){
-    int capacity = 256;
-    int length = 0;
-    char* buffer = (char*)malloc(capacity * sizeof(char));
-    if (buffer == NULL) return NULL;
-    buffer[0] = '\0';
-    while(fgets(buffer + length, capacity - length, stream) != NULL){
-        length += strlen(buffer+length);
-        if (length > 0 && buffer[length-1] == '\n'){
-            buffer[length-1] = '\0';
-            break;
-        }
-        capacity *= 2;
-        char* new_buffer = (char*)realloc(buffer,capacity * sizeof(char));
-        if (new_buffer == NULL){
-            free(buffer);
-            return NULL;
-        }
-        buffer = new_buffer;
-    }
-    if (length == 0 && buffer[0] == '\0'){
-        free(buffer);
-        return NULL;
-    }
-    return buffer;
-}
-
 void appendText(struct TextBuffer* buffer){
     printf(">Enter text to append: ");
     char* temp_buffer = readDynamicLine(stdin);
     if (temp_buffer != NULL){
         int length = strlen(temp_buffer);
+        clearRedo(buffer);
+        saveSnapshot(buffer);
         if (buffer->line_count == 0){
             if (buffer->line_count >= buffer->capacity){
                 buffer->capacity *= 2;
@@ -222,15 +281,21 @@ void freeBuffer(struct TextBuffer* buffer){
     for (int i = 0; i < buffer->line_count; ++i){
         free(buffer->lines[i]);
     }
-    if (buffer->clipboard != NULL){
-        free(buffer->clipboard);
+    free(buffer->clipboard);
+    for(int i = 0; i < buffer->history_count; i++){
+        for(int j = 0; j < buffer->history_line_counts[i]; j++){
+            free(buffer->history_lines[i][j]);
+        }
+        free(buffer->history_lines[i]);
     }
-    free (buffer->lines);
+    clearRedo(buffer);
     free(buffer);
     printf("*Memory was freed\n*");
 }
 
 void insertNewLine(struct TextBuffer* buffer){
+    clearRedo(buffer);
+    saveSnapshot(buffer);
     if (buffer->line_count >= buffer->capacity){
         buffer->capacity *= 2;
         buffer->lines = (char**)realloc(buffer->lines, buffer->capacity * sizeof(char*));
@@ -294,44 +359,28 @@ void loadFromFile(struct TextBuffer* buffer){
     }
 }
 
-void insertText(struct TextBuffer* buffer){
-    int line_index;
-    int symbol_index;
-    printf(">>Choose line and index: ");
-    if (scanf("%d %d", &line_index, &symbol_index) != 2){
-        printf("*Error: Invalid input format.\n");
-        while(getchar() != '\n');
-        return;
-    }
-    while(getchar() != '\n');
+void insertLogic(struct TextBuffer* buffer, const char* temp_buffer){
+    int line_index = buffer->cursor_line;
+    int symbol_index = buffer->cursor_symbol;
     if (line_index < 0 || line_index >= buffer->line_count){
         printf("Error: No such index.\n");
         return;
     }
-    printf(">>Enter text to insert: ");
-    char temp_buffer[256];
-    if (fgets(temp_buffer, sizeof(temp_buffer), stdin) != NULL){
-        int length = strlen(temp_buffer);
-        if (length >0 && temp_buffer[length-1]=='\n'){
-            temp_buffer[length-1] = '\0';
-        }
-        int old_len = strlen(buffer->lines[line_index]);
-        if (symbol_index < 0 || symbol_index > old_len){
-            printf("*Error: No such index.\n");
-            return;
-        }
-        int new_len = strlen(temp_buffer);
-        char* new_line = (char*)malloc((old_len+new_len+1) * sizeof(char));
-        if (new_line != NULL){
-            strncpy(new_line, buffer->lines[line_index], symbol_index);
-            new_line[symbol_index] = '\0';
-            strcat(new_line, temp_buffer);
-            strcat(new_line, buffer->lines[line_index]+symbol_index);
-            free(buffer->lines[line_index]);
-            buffer->lines[line_index] = new_line;
-            printf("*Text was inserted successfully*\n");
-        }
-        free(temp_buffer);
+    int old_len = strlen(buffer->lines[line_index]);
+    if (symbol_index < 0 || symbol_index > old_len){
+        printf("*Error: No such index.\n");
+        return;
+    }
+    int new_len = strlen(temp_buffer);
+    char* new_line = (char*)malloc((old_len+new_len+1) * sizeof(char));
+    if (new_line != NULL){
+        strncpy(new_line, buffer->lines[line_index], symbol_index);
+        new_line[symbol_index] = '\0';
+        strcat(new_line, temp_buffer);
+        strcat(new_line, buffer->lines[line_index]+symbol_index);
+        free(buffer->lines[line_index]);
+        buffer->lines[line_index] = new_line;
+        buffer->cursor_symbol += new_len;
     }
 }
 
@@ -379,6 +428,8 @@ void delete(struct TextBuffer* buffer){
         while(getchar() != '\n');
         return;
     }
+    clearRedo(buffer);
+    saveSnapshot(buffer);
     deleteLogic(buffer, number_of_symbols);
     printf("*Text was deleted successfully*\n");
 }
@@ -420,6 +471,8 @@ void cut(struct TextBuffer* buffer){
         return;
     }
     while(getchar() != '\n');
+    clearRedo(buffer);
+    saveSnapshot(buffer);
     copyLogic(buffer, num);
     deleteLogic(buffer, num);
     printf("*Text was cutted*\n");
@@ -436,6 +489,8 @@ void paste(struct TextBuffer* buffer){
         printf("*Error: Cursor is out of bounds*\n");
         return;
     }
+    clearRedo(buffer);
+    saveSnapshot(buffer);
     int old_len = strlen(buffer->lines[line_index]);
     int paste_len = strlen(buffer->clipboard);
     if (symbol_index > old_len) {
@@ -480,61 +535,43 @@ void searchWord(struct TextBuffer* buffer){
     }
 }
 
-void undo(struct TextBuffer* buffer){
-    if (buffer->history_count > 0){
-        saveRedoSnapshots(buffer);
-        for (int i = 0; i < buffer->line_count; i++){
-            free(buffer->lines[i]);
-        }
-        free(buffer->lines);
-        buffer->line_count = buffer->history_line_counts[0];
-        buffer->cursor_line = buffer->history_cursor_lines[0];
-        buffer->cursor_symbol = buffer->history_cursor_symbols[0];
-        buffer->lines = buffer->history_lines[0];
-        for (int i = 0; i < buffer->history_count - 1; i++){
-            buffer->history_lines[i] = buffer->history_lines[i + 1];
-            buffer->history_line_counts[i] = buffer->history_line_counts[i + 1];
-            buffer->history_cursor_lines[i] = buffer->history_cursor_lines[i + 1];
-            buffer->history_cursor_symbols[i] = buffer->history_cursor_symbols[i + 1];
-        }
-        buffer->history_count--;
+void insertText(struct TextBuffer* buffer){
+    if (buffer->line_count == 0){
+        printf("*Error: Text is empty, use Append first*\n");
+        return;
+    }
+    clearRedo(buffer);
+    saveSnapshot(buffer);
+    printf(">>Enter text to insert: ");
+    char* temp_buffer = readDynamicLine(stdin);
+    if (temp_buffer != NULL){
+        insertLogic(buffer, temp_buffer);
+        free(temp_buffer);
+        printf("*Text was inserted*\n");
     }
 }
 
-void redo(struct TextBuffer* buffer){
-    if (buffer->redo_count > 0){
-        saveSnapshot(buffer);
-        for (int i = 0; i < buffer->line_count; i++){
-            free(buffer->lines[i]);
-        }
-        free(buffer->lines);
-        buffer->line_count = buffer->redo_line_counts[0];
-        buffer->cursor_line = buffer->redo_cursor_lines[0];
-        buffer->cursor_symbol = buffer->redo_cursor_symbols[0];
-        buffer->lines = buffer->redo_lines[0];
-        for (int i = 0; i < buffer->redo_count - 1; i++){
-            buffer->redo_lines[i] = buffer->redo_lines[i + 1];
-            buffer->redo_line_counts[i] = buffer->redo_line_counts[i + 1];
-            buffer->redo_cursor_lines[i] = buffer->redo_cursor_lines[i + 1];
-            buffer->redo_cursor_symbols[i] = buffer->redo_cursor_symbols[i + 1];
-        }
-        buffer->redo_count--;
+void replace(struct TextBuffer* buffer){
+    if (buffer->line_count == 0) {
+        printf("*Error: Text is empty*\n");
+        return;
     }
-}
-
-void clearRedo(struct TextBuffer* buffer){
-    for(int i = 0; i < buffer->redo_count; i++){
-        for(int j = 0; j < buffer->redo_line_counts[i]; j++){
-            free(buffer->redo_lines[i][j]);
-        }
-        free(buffer->redo_lines[i]);
-        buffer->redo_lines[i] = NULL;
+    
+    int num_to_replace;
+    printf(">>Choose number of symbols to replace: ");
+    if (scanf("%d", &num_to_replace) != 1) {
+        while(getchar() != '\n');
+        return;
     }
-    buffer->redo_count = 0;
-}
-
-void clearConsole(){
-    system("clear");
+    while(getchar() != '\n');
+    clearRedo(buffer);
+    saveSnapshot(buffer);
+    printf(">Enter text to append: ");
+    char* temp_buffer = readDynamicLine(stdin);
+    deleteLogic(buffer, num_to_replace);
+    insertLogic(buffer, temp_buffer);
+    free(temp_buffer);
+    printf("*Text was replaced*\n");
 }
 
 int main() {
@@ -544,7 +581,7 @@ int main() {
     printf("--- Menu ---\n");
     printf("1. Append text\n2. Start new line\n3. Save to file\n4. Load from file\n");
     printf("5. Print current text\n6. Insert text by index\n7. Search by word\n8. Delete\n9. Undo\n");
-    printf("10. Redo\n11. Cut\n12. Paste\n13. Copy\n14. Replace\n15. Exit\n");
+    printf("10. Redo\n11. Cut\n12. Paste\n13. Copy\n14. Replace\n15. Set cursos\n16. Exit\n");
     
     while(running == 1){
         printf(">Choose the command: ");
@@ -596,9 +633,12 @@ int main() {
                 copy(textStorage);
                 break;
             case 14:
-                // replace(textStorage);
+                replace(textStorage);
                 break;
             case 15:
+                setCursor(textStorage);
+                break;
+            case 16:
                 printf("You have finished the process\n");
                 running = 0;
                 break;
