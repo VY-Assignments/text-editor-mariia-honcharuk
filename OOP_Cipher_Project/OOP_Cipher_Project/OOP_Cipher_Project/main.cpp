@@ -2,7 +2,7 @@
 //  main.cpp
 //  OOP_Cipher_Project
 //
-//  Created by Maria Goncharuk on 16.06.2026.
+//  Created by Maria Goncharuk on 14.06.2026.
 //
 
 #include <iostream>
