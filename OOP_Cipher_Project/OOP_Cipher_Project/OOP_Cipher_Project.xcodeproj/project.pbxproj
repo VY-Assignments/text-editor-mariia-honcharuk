@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		CC82FD8D2FE2D1DA00BB4788 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = CC82FD8C2FE2D1D200BB4788 /* main.c */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXCopyFilesBuildPhase section */
 		CC87EB1A2FE0A2BF00F9B1E3 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -19,6 +23,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CC82FD8C2FE2D1D200BB4788 /* main.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		CC87EB1C2FE0A2BF00F9B1E3 /* OOP_Cipher_Project */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = OOP_Cipher_Project; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -44,6 +49,7 @@
 		CC87EB132FE0A2BF00F9B1E3 = {
 			isa = PBXGroup;
 			children = (
+				CC82FD8C2FE2D1D200BB4788 /* main.c */,
 				CC87EB1E2FE0A2BF00F9B1E3 /* OOP_Cipher_Project */,
 				CC87EB1D2FE0A2BF00F9B1E3 /* Products */,
 			);
@@ -120,6 +126,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CC82FD8D2FE2D1DA00BB4788 /* main.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -245,6 +252,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/OOP_Cipher_Project",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -253,6 +264,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/OOP_Cipher_Project",
+				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

@@ -17,6 +17,9 @@ VigenereCipher::VigenereCipher(const std::string& k) {
     key = k;
 }
 
+AtbashCipher::AtbashCipher() {
+}
+
 std::string CaesarCipher::encrypt(const std::string& text) {
     std::string result = "";
     for (char c : text) {
@@ -98,6 +101,27 @@ std::string VigenereCipher::decrypt(const std::string& text) {
     return result;
 }
 
+std::string AtbashCipher::encrypt(const std::string& text) {
+    std::string result = "";
+    
+    for (char c : text) {
+        if (isalpha(c)) {
+            if (isupper(c)) {
+                result += 'Z' - (c - 'A');
+            } else {
+                result += 'z' - (c - 'a');
+            }
+        } else {
+            result += c;
+        }
+    }
+    return result;
+}
+
+std::string AtbashCipher::decrypt(const std::string& text) {
+    return encrypt(text);
+}
+
 extern "C"{
     EXPORT cipher_t cipher_create_caesar(int key) {
         return new CaesarCipher(key);
@@ -119,5 +143,8 @@ extern "C"{
     EXPORT void cipher_destroy(cipher_t cipher) {
         Cipher* c = static_cast<Cipher*>(cipher);
         delete c;
+    }
+    EXPORT cipher_t cipher_create_atbash() {
+        return new AtbashCipher();
     }
 }
