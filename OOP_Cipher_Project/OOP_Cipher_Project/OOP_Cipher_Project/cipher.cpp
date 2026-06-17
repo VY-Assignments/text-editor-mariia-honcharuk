@@ -147,4 +147,7 @@ extern "C"{
     EXPORT cipher_t cipher_create_atbash() {
         return new AtbashCipher();
     }
+    EXPORT void cipher_free(char* str) {
+        delete[] str;
+    }
 }
