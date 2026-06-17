@@ -13,6 +13,9 @@
 CaesarCipher::CaesarCipher(int k) {
     key = (k % 26 + 26) % 26;
 }
+VigenereCipher::VigenereCipher(const std::string& k) {
+    key = k;
+}
 
 std::string CaesarCipher::encrypt(const std::string& text) {
     std::string result = "";
@@ -93,4 +96,28 @@ std::string VigenereCipher::decrypt(const std::string& text) {
         }
     }
     return result;
+}
+
+extern "C"{
+    EXPORT cipher_t cipher_create_caesar(int key) {
+        return new CaesarCipher(key);
+    }
+    EXPORT cipher_t cipher_create_vigenere(const char* key) {
+        return new VigenereCipher(key);
+    }
+
+    EXPORT char* cipher_encrypt(cipher_t cipher, const char* text) {
+        Cipher* c = static_cast<Cipher*>(cipher);
+        std::string encryptedStr = c->encrypt(text);
+        return strdup(encryptedStr.c_str());
+    }
+    EXPORT char* cipher_decrypt(cipher_t cipher, const char* text){
+        Cipher* c = static_cast<Cipher*>(cipher);
+        std::string decryptedStr = c->decrypt(text);
+        return strdup(decryptedStr.c_str());
+    }
+    EXPORT void cipher_destroy(cipher_t cipher) {
+        Cipher* c = static_cast<Cipher*>(cipher);
+        delete c;
+    }
 }
